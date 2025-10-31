@@ -520,9 +520,7 @@ function updateGeneralStats() {
         // Trova utenze dal MODELLO per questo sito
         const utenzeDelSito = excelData.modello.filter(row => {
             return (row.SITO && site.SITO && 
-                   row.SITO.toString().trim().toLowerCase() === site.SITO.toString().trim().toLowerCase()) ||
-                   (row.DOIT && site.DOIT && 
-                   row.DOIT.toString().trim().toLowerCase() === site.DOIT.toString().trim().toLowerCase());
+                   row.SITO.toString().trim().toLowerCase() === site.SITO.toString().trim().toLowerCase()) 
         });
 
         // Somma consumi elettrici e aggrega per Competenza e Uso Energetico
