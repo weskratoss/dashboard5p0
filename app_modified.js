@@ -500,13 +500,86 @@ function calculateKPIs() {
 
 // Update general statistics with simplified KPIs (4 cards only)
 function updateGeneralStats() {
-  const kpis = calculateKPIs();
-  
-  // Show empty state message if no sites
-  if (userSites.length === 0) {
-    displayEmptyDashboard();
-    return;
-  }
+    // Ottieni i siti visibili in base ai filtri attivi
+    const visibleSites = getVisibleSites();
+    
+    if (visibleSites.length === 0) {
+        document.getElementById('total-electric').textContent = '0 kWh';
+        document.getElementById('total-gas').textContent = '0 Smc';
+        document.getElementById('total-tep').textContent = '0 TEP';
+        return;
+    }
+
+    let totalElectricKwh = 0;
+    let totalGasSmc = 0;
+    const consumiPerCompetenza = {};
+    const consumiPerUsoEnergetico = {};
+
+    // Itera sui siti filtrati visibili
+    visibleSites.forEach(site => {
+        // Trova utenze dal MODELLO per questo sito
+        const utenzeDelSito = excelData.modello.filter(row => {
+            return (row.SITO && site.SITO && 
+                   row.SITO.toString().trim().toLowerCase() === site.SITO.toString().trim().toLowerCase()) ||
+                   (row.DOIT && site.DOIT && 
+                   row.DOIT.toString().trim().toLowerCase() === site.DOIT.toString().trim().toLowerCase());
+        });
+
+        // Somma consumi elettrici e aggrega per Competenza e Uso Energetico
+        utenzeDelSito.forEach(utenza => {
+            if (utenza['Consumo kWh'] && !isNaN(parseFloat(utenza['Consumo kWh']))) {
+                const consumo = parseFloat(utenza['Consumo kWh']);
+                totalElectricKwh += consumo;
+
+                // Aggregazione per Competenza
+                const competenza = utenza.Competenza || 'Non specificata';
+                consumiPerCompetenza[competenza] = (consumiPerCompetenza[competenza] || 0) + consumo;
+
+                // Aggregazione per Uso Energetico
+                const usoEnergetico = utenza['Uso energetico'] || 'Non specificato';
+                consumiPerUsoEnergetico[usoEnergetico] = (consumiPerUsoEnergetico[usoEnergetico] || 0) + consumo;
+            }
+        });
+
+        // Trova consumi gas PDR 2022 per questo sito
+        const pdrDelSito = excelData.pdrFatturati.filter(row => {
+            return (row.SITO && site.SITO && 
+                   row.SITO.toString().trim().toLowerCase() === site.SITO.toString().trim().toLowerCase());
+        });
+
+        pdrDelSito.forEach(pdr => {
+            if (pdr['2022'] && !isNaN(parseFloat(pdr['2022']))) {
+                totalGasSmc += parseFloat(pdr['2022']);
+            }
+        });
+    });
+
+    // Calcola TEP totali
+    const totalElectricTep = totalElectricKwh / TEP_CONVERSIONS.ELECTRIC_KWH_PER_TEP;
+    const totalGasTep = totalGasSmc / TEP_CONVERSIONS.GAS_SMC_PER_TEP;
+    const totalTep = totalElectricTep + totalGasTep;
+
+    // Aggiorna UI
+    document.getElementById('total-electric').textContent = formatNumber(totalElectricKwh) + ' kWh';
+    document.getElementById('total-gas').textContent = formatNumber(totalGasSmc) + ' Smc';
+    document.getElementById('total-tep').textContent = formatNumber(totalTep, 2) + ' TEP';
+
+    // Aggiorna grafici con i dati aggregati
+    updateCompetenzaChart(consumiPerCompetenza);
+    updateUsoEnergeticoCharts(consumiPerUsoEnergetico);
+}
+
+// Funzione helper per ottenere i siti visibili
+function getVisibleSites() {
+    const selectedDOIT = document.getElementById('filter-doit').value;
+    const selectedCategory = document.getElementById('filter-category').value;
+
+    return userSites.filter(site => {
+        const doitMatch = selectedDOIT === 'all' || site.DOIT === selectedDOIT;
+        const categoryMatch = selectedCategory === 'all' || site.Metallo.toLowerCase() === selectedCategory.toLowerCase();
+        return doitMatch && categoryMatch;
+    });
+}
   
   // Update 4 main KPI cards with Italian formatting
   // Update total sites count
